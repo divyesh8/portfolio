@@ -1,4 +1,5 @@
-import { ArrowUpRight, Code2, Github, Instagram, Linkedin } from "lucide-react";
+import { ArrowUpRight, Github, Instagram, Linkedin } from "lucide-react";
+import { XIcon } from "@/components/ui/x-icon";
 import { SITE, SOCIALS } from "@/constants/site";
 
 const profiles = [
@@ -15,10 +16,10 @@ const profiles = [
     Icon: Linkedin,
   },
   {
-    name: "LeetCode",
-    handle: "@_divyesshh",
-    href: SOCIALS.leetcode,
-    Icon: Code2,
+    name: "X",
+    handle: "@_divyesh8",
+    href: SOCIALS.x,
+    Icon: XIcon,
   },
   {
     name: "Instagram",

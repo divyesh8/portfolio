@@ -80,7 +80,7 @@ lib/           GitHub client, types, utilities
 - **Portfolio** — [divyeshkolli.fun](https://divyeshkolli.fun)
 - **GitHub** — [@divyesh8](https://github.com/divyesh8)
 - **LinkedIn** — [Divyesh Kolli](https://www.linkedin.com/in/divyesh-kolli-690b0a102/)
-- **LeetCode** — [_divyesshh](https://leetcode.com/u/_divyesshh/)
+- **X** — [@_divyesh8](https://x.com/_divyesh8)
 
 ---
 

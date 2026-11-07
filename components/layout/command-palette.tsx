@@ -15,6 +15,7 @@ import {
   Play,
   Sun,
 } from "lucide-react";
+import { XIcon } from "@/components/ui/x-icon";
 import { NAV, SITE, SOCIALS } from "@/constants/site";
 import { useTheme } from "@/hooks/use-theme";
 import {
@@ -146,9 +147,9 @@ export function CommandPalette({
                   LinkedIn
                   <ArrowUpRight className="ml-auto h-3.5 w-3.5 text-[var(--fg-subtle)]" />
                 </Item>
-                <Item onSelect={() => openLink(SOCIALS.leetcode)}>
-                  <Code2 className="h-4 w-4 text-[var(--fg-subtle)]" />
-                  LeetCode
+                <Item onSelect={() => openLink(SOCIALS.x)}>
+                  <XIcon className="h-4 w-4 text-[var(--fg-subtle)]" />
+                  X (@_divyesh8)
                   <ArrowUpRight className="ml-auto h-3.5 w-3.5 text-[var(--fg-subtle)]" />
                 </Item>
                 <Item onSelect={() => openLink(`mailto:${SITE.email}`)}>

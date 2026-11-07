@@ -23,7 +23,7 @@ export const SITE = {
 export const SOCIALS = {
   github: "https://github.com/divyesh8",
   linkedin: "https://www.linkedin.com/in/divyesh-kolli-690b0a102/",
-  leetcode: "https://leetcode.com/u/_divyesshh/",
+  x: "https://x.com/_divyesh8",
   instagram: "https://www.instagram.com/_divyesshh",
 };
 

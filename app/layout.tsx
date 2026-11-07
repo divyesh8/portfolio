@@ -43,6 +43,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: SITE.title,
     description: SITE.description,
+    creator: "@_divyesh8",
   },
   robots: {
     index: true,
@@ -90,7 +91,7 @@ const jsonLd = {
     "React",
     "Node.js",
   ],
-  sameAs: [SOCIALS.github, SOCIALS.linkedin, SOCIALS.leetcode].filter(Boolean),
+  sameAs: [SOCIALS.github, SOCIALS.linkedin, SOCIALS.x].filter(Boolean),
 };
 
 /** Set the theme before first paint so there is never a flash. */
