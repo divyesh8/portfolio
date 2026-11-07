@@ -1,0 +1,17 @@
+node_modules
+.next
+.next-dev
+
+# Local editor/tooling config — never commit
+.claude/
+.vscode/
+.idea/
+out
+build
+.DS_Store
+*.pem
+.env
+.env*.local
+.vercel
+next-env.d.ts
+tsconfig.tsbuildinfo
