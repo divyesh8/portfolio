@@ -14,9 +14,9 @@
 
 :root {
   --bg: #090909;
-  --bg-elevated: rgb(18 18 18 / 54%);
-  --dialog-surface: rgb(16 16 16 / 76%);
-  --page-surface: rgb(14 14 14 / 38%);
+  --bg-elevated: rgb(18 18 18 / 58%);
+  --dialog-surface: rgb(16 16 16 / 92%);
+  --page-surface: rgb(14 14 14 / 42%);
   --fg: #f2efeb;
   --fg-muted: #a09c9a;
   --fg-subtle: #8e8a87;
@@ -46,9 +46,9 @@
   --color-accent: #c81e2e;
   --color-accent-dim: rgb(200 30 46 / 10%);
   --bg: #f5f3ef;
-  --bg-elevated: rgb(240 236 229 / 58%);
-  --dialog-surface: rgb(246 244 240 / 80%);
-  --page-surface: rgb(248 246 242 / 42%);
+  --bg-elevated: rgb(240 236 229 / 62%);
+  --dialog-surface: rgb(246 244 240 / 94%);
+  --page-surface: rgb(248 246 242 / 46%);
   --fg: #141312;
   --fg-muted: #524e4b;
   --fg-subtle: #66615d;
@@ -93,19 +93,26 @@
     -webkit-text-size-adjust: 100%;
     scroll-padding-top: calc(var(--header-height) + 12px);
   }
-  html.lenis,
-  html.lenis body {
-    height: auto;
-  }
   html[data-motion="on"] {
     scroll-behavior: smooth;
-  }
-  .lenis.lenis-stopped {
-    overflow: hidden;
   }
   body {
     position: relative;
     background-color: var(--bg);
+    background-image:
+      radial-gradient(52% 18% at 78% 6%, var(--hero-glow), transparent 72%),
+      radial-gradient(48% 22% at 14% 34%, var(--ambient-secondary), transparent 74%),
+      radial-gradient(46% 22% at 82% 66%, var(--hero-glow), transparent 76%),
+      radial-gradient(44% 20% at 20% 90%, var(--ambient-secondary), transparent 76%),
+      linear-gradient(to right, var(--grid) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
+    background-size:
+      100% 100%,
+      100% 100%,
+      100% 100%,
+      100% 100%,
+      64px 64px,
+      64px 64px;
     color: var(--fg);
     transition:
       background-color var(--quick),
@@ -113,25 +120,6 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     overflow-x: clip;
-  }
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: -2;
-    pointer-events: none;
-    background:
-      radial-gradient(52% 46% at 78% 18%, var(--hero-glow), transparent 72%),
-      radial-gradient(46% 42% at 16% 62%, var(--ambient-secondary), transparent 74%),
-      radial-gradient(40% 38% at 82% 84%, var(--hero-glow), transparent 76%),
-      linear-gradient(to right, var(--grid) 1px, transparent 1px),
-      linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
-    background-size:
-      100% 100%,
-      100% 100%,
-      100% 100%,
-      64px 64px,
-      64px 64px;
   }
   button:not(:disabled),
   summary,
@@ -192,8 +180,6 @@
 .section-band {
   border-block: 1px solid var(--line);
   background-color: var(--bg-elevated);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
   transition:
     background-color var(--quick),
     border-color var(--quick);
@@ -277,8 +263,8 @@
   inset-block-start: 0;
   z-index: 50;
   background-color: var(--nav-surface);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
-  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
   transition:
     background-color var(--quick),
     border-color var(--quick);
@@ -472,8 +458,8 @@ html[data-motion="on"]:not([data-page-hidden])
   inset: 0;
   z-index: 79;
   background: rgb(0 0 0 / 62%);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
 }
 .case-dialog {
   position: fixed;
@@ -486,8 +472,6 @@ html[data-motion="on"]:not([data-page-hidden])
   overflow: auto;
   overscroll-behavior: contain;
   background: var(--dialog-surface);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
-  backdrop-filter: blur(20px) saturate(140%);
   border: 1px solid var(--line-strong);
   border-radius: 3px;
   padding: clamp(20px, 3.2vw, 36px);
@@ -690,8 +674,6 @@ html[data-motion="on"]:not([data-page-hidden])
 /* Skills matrix */
 .skill-list {
   background: var(--glass);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
   border: 1px solid var(--line);
   border-radius: 4px;
   padding-inline: clamp(16px, 2.4vw, 28px);
@@ -761,8 +743,6 @@ html[data-motion="on"]:not([data-page-hidden])
   position: relative;
   border-top: 1px solid var(--line);
   background: var(--glass);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
   padding-inline: 14px;
   transition: background-color var(--quick);
 }
@@ -894,8 +874,6 @@ html[data-motion="on"]:not([data-page-hidden])
   border: 1px solid var(--line-strong);
   border-radius: 3px;
   background: var(--panel);
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
   padding: 16px;
 }
 .resume-preview-bar {
@@ -975,8 +953,6 @@ html[data-motion="on"]:not([data-page-hidden])
 .contact-form {
   border-top: 2px solid var(--color-accent);
   background: var(--panel);
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
   border-inline: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
   border-radius: 0 0 3px 3px;
@@ -1020,8 +996,6 @@ html[data-motion="on"]:not([data-page-hidden])
   border: 1px solid var(--line);
   border-radius: 4px;
   background: var(--glass);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
   padding-inline: clamp(14px, 2vw, 24px);
 }
 .profile-links a {
@@ -1048,8 +1022,6 @@ html[data-motion="on"]:not([data-page-hidden])
 .site-footer {
   border-top: 1px solid var(--line);
   background: var(--bg-elevated);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
 }
 .site-footer > div {
   min-height: 96px;
@@ -1155,8 +1127,8 @@ html[data-motion="on"]:not([data-page-hidden])
     padding: 14px 20px;
     border: 1px solid var(--line-strong);
     background-color: var(--dialog-surface);
-    -webkit-backdrop-filter: blur(20px) saturate(140%);
-    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
     box-shadow: 0 20px 48px rgb(0 0 0 / 55%);
   }
   .mobile-nav a,
@@ -1332,24 +1304,13 @@ html[data-motion="on"]:not([data-page-hidden])
   }
 }
 
-/* Custom Cursor & Surface Treatments */
-@media (hover: hover) and (pointer: fine) {
-  body[data-cursor="on"],
-  body[data-cursor="on"] a,
-  body[data-cursor="on"] button,
-  body[data-cursor="on"] summary {
-    cursor: none;
-  }
-}
-
+/* Surface Treatments */
 .spotlight-card {
   position: relative;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 3px;
   background: var(--panel);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
   transition:
     border-color var(--quick),
     background-color var(--quick);
@@ -1408,37 +1369,4 @@ html[data-motion="on"]:not([data-page-hidden])
   ):is(:hover, :focus-visible)
   svg:last-child {
   transform: translate(2px, -1px);
-}
-.pointer-cursor {
-  pointer-events: none;
-  position: fixed;
-  z-index: 70;
-  top: 0;
-  left: 0;
-}
-.pointer-cursor::before,
-.pointer-cursor::after {
-  position: absolute;
-  content: "";
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-}
-.pointer-cursor::before {
-  width: 5px;
-  height: 5px;
-  background: var(--color-accent);
-}
-.pointer-cursor::after {
-  width: 24px;
-  height: 24px;
-  border: 1px solid var(--fg-subtle);
-  transition:
-    transform var(--quick),
-    border-color var(--quick),
-    background-color var(--quick);
-}
-.pointer-cursor[data-active]::after {
-  transform: translate(-50%, -50%) scale(1.4);
-  border-color: var(--color-accent);
-  background-color: var(--color-accent-dim);
 }

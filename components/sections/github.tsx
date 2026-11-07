@@ -126,7 +126,7 @@ export async function GitHubSection() {
                       key={day.date}
                       title={`${day.count} on ${day.date}`}
                       className={cn(
-                        "h-3 rounded-[2px] transition-colors sm:h-3.5",
+                        "h-3 rounded-[2px] sm:h-3.5",
                         day.level === 0 && "bg-[var(--calendar-empty)]",
                         day.level === 1 && "bg-accent/25",
                         day.level === 2 && "bg-accent/45",

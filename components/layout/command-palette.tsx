@@ -76,10 +76,10 @@ export function CommandPalette({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-md" />
+        <Dialog.Overlay className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm" />
         <Dialog.Content
           data-lenis-prevent
-          className="fixed left-1/2 top-[12%] z-[81] w-[calc(100%_-_2rem)] max-w-lg -translate-x-1/2 overflow-hidden rounded-[3px] border border-[var(--line-strong)] bg-[var(--dialog-surface)] shadow-2xl backdrop-blur-xl"
+          className="fixed left-1/2 top-[12%] z-[81] w-[calc(100%_-_2rem)] max-w-lg -translate-x-1/2 overflow-hidden rounded-[3px] border border-[var(--line-strong)] bg-[var(--dialog-surface)] shadow-2xl"
           onOpenAutoFocus={() => {
             opener.current =
               document.activeElement instanceof HTMLElement

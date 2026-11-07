@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useRef } from "react";
+import { motion, useScroll } from "framer-motion";
 import { ArrowUpRight, Plus } from "lucide-react";
 import { SectionHeading } from "@/components/shared/section-heading";
 import type { JourneyEntry } from "@/constants/content";
@@ -58,31 +57,10 @@ export function JourneyTimeline({ entries }: { entries: JourneyEntry[] }) {
   const primary = entries.filter((entry) => !entry.archived);
   const trackRef = useRef<HTMLDivElement>(null);
   const reduced = useReducedMotion();
-
-  useEffect(() => {
-    const el = trackRef.current;
-    if (!el || reduced) return;
-
-    gsap.registerPlugin(ScrollTrigger);
-    const ctx = gsap.context(() => {
-      gsap.fromTo(
-        "[data-journey-spine]",
-        { scaleY: 0 },
-        {
-          scaleY: 1,
-          ease: "none",
-          scrollTrigger: {
-            trigger: el,
-            start: "top 75%",
-            end: "bottom 45%",
-            scrub: 0.35,
-          },
-        },
-      );
-    }, el);
-
-    return () => ctx.revert();
-  }, [reduced]);
+  const { scrollYProgress } = useScroll({
+    target: trackRef,
+    offset: ["start 75%", "end 45%"],
+  });
 
   return (
     <section id="journey" className="section-band">
@@ -97,8 +75,8 @@ export function JourneyTimeline({ entries }: { entries: JourneyEntry[] }) {
             className="journey-spine-bg"
             aria-hidden
           />
-          <span
-            data-journey-spine
+          <motion.span
+            style={reduced ? undefined : { scaleY: scrollYProgress }}
             className="journey-spine-fill"
             aria-hidden
           />
