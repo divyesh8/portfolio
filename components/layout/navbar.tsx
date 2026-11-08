@@ -1,193 +1,121 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import {
-  ArrowUpRight,
-  Command,
-  Menu,
-  Moon,
-  Pause,
-  Play,
-  Sun,
-  X,
-} from "lucide-react";
-import { NAV, SECTION_IDS, SITE } from "@/constants/site";
-import { useActiveSection } from "@/hooks/use-active-section";
-import { useTheme } from "@/hooks/use-theme";
-import {
-  toggleMotion,
-  useReducedMotion,
-  useSystemReducedMotion,
-} from "@/hooks/use-media-query";
+import { useEffect, useState } from "react";
+import { ArrowUpRight, Menu, Pause, Play, X } from "lucide-react";
+import { SITE } from "@/constants/site";
+import { useReducedMotion, toggleMotion } from "@/hooks/use-media-query";
 
-export function Navbar({ onOpenPalette }: { onOpenPalette: () => void }) {
-  const active = useActiveSection(SECTION_IDS);
-  const { theme, toggle } = useTheme();
-  const reduced = useReducedMotion();
-  const systemReduced = useSystemReducedMotion();
+export function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const nav = useRef<HTMLElement>(null);
-  const trigger = useRef<HTMLButtonElement>(null);
+  const [activeSection, setActiveSection] = useState("home");
+  const reduced = useReducedMotion();
 
   useEffect(() => {
-    if (!menuOpen) return;
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setMenuOpen(false);
-        trigger.current?.focus();
-      }
-    }
-    function outside(event: PointerEvent) {
-      if (event.target instanceof Node && !nav.current?.contains(event.target))
-        setMenuOpen(false);
-    }
-    const desktop = matchMedia("(min-width: 1100px)");
-    const close = () => setMenuOpen(false);
-    desktop.addEventListener("change", close);
-    window.addEventListener("hashchange", close);
-    window.addEventListener("keydown", closeOnEscape);
-    window.addEventListener("pointerdown", outside);
-    return () => {
-      desktop.removeEventListener("change", close);
-      window.removeEventListener("hashchange", close);
-      window.removeEventListener("keydown", closeOnEscape);
-      window.removeEventListener("pointerdown", outside);
-    };
-  }, [menuOpen]);
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setActiveSection(entry.target.id);
+          }
+        });
+      },
+      { rootMargin: "-15% 0px -65% 0px" },
+    );
+    document
+      .querySelectorAll("main > section[id]")
+      .forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
 
-  const isSectionActive = (id: (typeof NAV)[number]["id"]) =>
-    active === id || (active === "profiles" && id === "github");
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const navLinks = [
+    { id: "portfolio", label: "Work" },
+    { id: "about", label: "About" },
+    { id: "experience", label: "Journey" },
+    { id: "contact", label: "Contact" },
+  ];
 
   return (
-    <header
-      className="masthead"
-      ref={nav}
-      onBlur={(event) => {
-        if (
-          event.relatedTarget &&
-          !event.currentTarget.contains(event.relatedTarget as Node)
-        )
-          setMenuOpen(false);
-      }}
-    >
-      <nav className="shell masthead-inner" aria-label="Primary navigation">
-        <a
-          href="#hero"
-          className="wordmark"
-          aria-current={active === "hero" ? "location" : undefined}
-          aria-label={`${SITE.name}, home`}
-          onClick={() => setMenuOpen(false)}
+    <header className="site-header">
+      <a className="wordmark" href="#home" aria-label={`${SITE.name}, home`}>
+        DIVYESH<span>®</span>
+      </a>
+
+      <nav className="desktop-nav" aria-label="Main navigation">
+        {navLinks.map(({ id, label }) => (
+          <a
+            key={id}
+            href={`#${id}`}
+            className={
+              activeSection === id ||
+              (id === "portfolio" && activeSection === "work") ||
+              (id === "experience" && activeSection === "journey")
+                ? "active"
+                : ""
+            }
+          >
+            {label}
+          </a>
+        ))}
+      </nav>
+
+      <div className="header-actions">
+        <button
+          type="button"
+          className="motion-toggle"
+          onClick={toggleMotion}
+          aria-label={!reduced ? "Pause animation" : "Enable animation"}
+          aria-pressed={reduced}
         >
-          <span className="folio-wordmark" aria-hidden>{SITE.name}<i>.</i></span>
+          {!reduced ? <Pause size={13} /> : <Play size={13} />}
+          <span>Motion {!reduced ? "on" : "off"}</span>
+        </button>
+
+        <a className="header-contact" href="#contact">
+          Let’s talk <ArrowUpRight size={16} />
         </a>
 
-        <div className="desktop-nav">
-          {NAV.filter(({ id }) => ["work", "about", "journey", "contact"].includes(id)).map((item) => (
-            <a
-              key={item.id}
-              href={`#${item.id}`}
-              aria-current={isSectionActive(item.id) ? "location" : undefined}
-              onClick={() => setMenuOpen(false)}
-            >
-              {item.label}
-            </a>
-          ))}
-        </div>
-
-        <div className="nav-tools">
-          <button
-            type="button"
-            className="icon-control palette-trigger"
-            aria-label="Open command palette"
-            title="Command palette (Ctrl / ⌘ K)"
-            onClick={onOpenPalette}
-          >
-            <Command size={15} />
-          </button>
-          <button
-            type="button"
-            className="icon-control"
-            aria-label={
-              theme === "dark"
-                ? "Switch to light theme"
-                : "Switch to dark theme"
-            }
-            title={
-              theme === "dark"
-                ? "Switch to light theme"
-                : "Switch to dark theme"
-            }
-            onClick={toggle}
-          >
-            {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
-          </button>
-          <button
-            type="button"
-            className="motion-control"
-            onClick={toggleMotion}
-            disabled={systemReduced}
-            aria-pressed={!reduced}
-            aria-label={
-              systemReduced
-                ? "Motion off (system preference)"
-                : reduced
-                  ? "Turn motion on"
-                  : "Turn motion off"
-            }
-          >
-            {reduced ? <Play size={11} /> : <Pause size={11} />}
-            <span className="motion-label">
-              Motion {reduced ? "off" : "on"}
-            </span>
-          </button>
-          <a href="#contact" className="nav-invitation">Let’s talk <ArrowUpRight size={15} aria-hidden /></a>
-          <button
-            type="button"
-            ref={trigger}
-            className="icon-control menu-trigger"
-            aria-label={menuOpen ? "Close menu" : "Open menu"}
-            aria-expanded={menuOpen}
-            aria-controls="mobile-nav"
-            onClick={() => setMenuOpen(!menuOpen)}
-          >
-            {menuOpen ? <X size={20} /> : <Menu size={20} />}
-          </button>
-        </div>
-
-        <div
-          id="mobile-nav"
-          hidden={!menuOpen}
-          className="mobile-nav"
-          data-lenis-prevent
+        <button
+          type="button"
+          className="menu-toggle icon-button"
+          onClick={() => setMenuOpen(!menuOpen)}
+          aria-expanded={menuOpen}
+          aria-controls="mobile-menu"
+          aria-label={menuOpen ? "Close menu" : "Open menu"}
         >
-          {NAV.map((item, idx) => (
+          {menuOpen ? <X size={20} /> : <Menu size={20} />}
+        </button>
+      </div>
+
+      {menuOpen && (
+        <nav
+          id="mobile-menu"
+          className="mobile-menu"
+          aria-label="Mobile navigation"
+        >
+          {[
+            { id: "home", label: "Home" },
+            ...navLinks,
+          ].map(({ id, label }, i) => (
             <a
-              key={item.id}
-              href={`#${item.id}`}
-              aria-current={isSectionActive(item.id) ? "location" : undefined}
+              key={id}
+              href={`#${id}`}
               onClick={() => setMenuOpen(false)}
             >
-              <span>
-                <small className="mobile-nav-index" aria-hidden>
-                  0{idx + 1}
-                </small>
-                {item.label}
-              </span>
-              <ArrowUpRight size={14} aria-hidden />
+              <span>0{i + 1}</span>
+              {label}
+              <ArrowUpRight size={18} />
             </a>
           ))}
-          <button
-            type="button"
-            onClick={() => {
-              setMenuOpen(false);
-              onOpenPalette();
-            }}
-          >
-            <span>Command palette</span>
-            <Command size={14} aria-hidden />
-          </button>
-        </div>
-      </nav>
+        </nav>
+      )}
     </header>
   );
 }

@@ -3,191 +3,240 @@
 import { useState } from "react";
 import {
   ArrowUpRight,
-  Check,
+  ExternalLink,
   Github,
-  Linkedin,
-  Loader2,
+  Globe,
+  Instagram,
   Mail,
   MapPin,
-  Send,
+  Phone,
+  Play,
+  Plus,
 } from "lucide-react";
-import { SectionHeading } from "@/components/shared/section-heading";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { SITE, SOCIALS } from "@/constants/site";
+import { XIcon } from "@/components/ui/x-icon";
 
-type Status = "idle" | "sending" | "sent" | "error";
+export function Contact({
+  onSelectProject,
+}: {
+  onSelectProject?: (slug: string) => void;
+}) {
+  const [sent, setSent] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-export function Contact() {
-  const [status, setStatus] = useState<Status>("idle");
-  const [message, setMessage] = useState("");
-  const [draft, setDraft] = useState("");
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setSubmitting(true);
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+    const name = (formData.get("name") as string) || "";
+    const type = (formData.get("type") as string) || "";
+    const message = (formData.get("message") as string) || "";
 
-  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (status === "sending") return;
-    const form = event.currentTarget;
-    const data = Object.fromEntries(new FormData(form)) as Record<
-      string,
-      string
-    >;
     try {
-      if (data.name || data.email) {
-        localStorage.setItem(
-          "dk-visitor-identity",
-          JSON.stringify({
-            name: (data.name ?? "").trim(),
-            email: (data.email ?? "").trim(),
-          }),
-        );
-      }
-    } catch {
-      /* Ignore storage restrictions. */
-    }
-    const subject = encodeURIComponent(`Portfolio — ${data.name}`);
-    const body = encodeURIComponent(
-      `${data.message}\n\n— ${data.name} (${data.email})`,
-    );
-    const mailto = `mailto:${SITE.email}?subject=${subject}&body=${body}`;
-    setStatus("sending");
-    setMessage("");
-    setDraft("");
-    try {
-      const response = await fetch("/api/contact", {
+      await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          name,
+          email: `${name.replace(/\s+/g, "").toLowerCase() || "visitor"}@inquiry.portfolio`,
+          message: `[Project Type: ${type}]\n\n${message}`,
+        }),
       });
-      const result = await response.json();
-      if (!response.ok || !result.ok) {
-        setStatus("error");
-        setMessage(result.error ?? "Your message could not be sent.");
-        if (result.fallback) setDraft(mailto);
-        return;
-      }
-      form.reset();
-      setStatus("sent");
-      setMessage("Your message was sent. Thank you for getting in touch.");
     } catch {
-      setStatus("error");
-      setMessage(
-        "The form is unavailable. You can send this message by email.",
-      );
-      setDraft(mailto);
+      /* Best effort backend submission */
     }
-  }
+
+    const draft = `Hi Divyesh, I’m ${name}.\n\nProject / Discussion: ${type}\n${message}`;
+    window.open(
+      `https://wa.me/919494992398?text=${encodeURIComponent(draft)}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
+    setSubmitting(false);
+    setSent(true);
+  };
 
   return (
-    <section id="contact" className="shell section-block contact-layout">
-      <div>
-        <SectionHeading
-          eyebrow="07 / Contact"
-          title="Get in touch"
-          lede="I’m seeking internships and engineering opportunities in cloud infrastructure, site reliability (SRE), backend systems, and full-stack development."
-        />
+    <section id="contact" className="contact section-wrap">
+      <div className="contact-grid">
+        {/* Intro */}
+        <div className="contact-intro">
+          <span className="eyebrow">04 / YOUR NEXT PROJECT</span>
+          <h2 className="display">
+            LET’S BUILD <br />
+            TOGETHER<span className="accent">.</span>
+          </h2>
+          <p>
+            Got a systems or cloud architecture in mind? <br />
+            Let’s make something resilient and observable.
+          </p>
+          <a
+            href={`mailto:${SITE.email}`}
+            className="contact-cta"
+            aria-label={`Send email to ${SITE.email}`}
+          >
+            <span className="round-arrow">
+              <ArrowUpRight size={21} />
+            </span>
+            START A CONVERSATION
+          </a>
+        </div>
+
+        {/* Links */}
         <div className="contact-links">
           <a href={`mailto:${SITE.email}`}>
-            <Mail size={17} />
-            <span>{SITE.email}</span>
-            <ArrowUpRight size={15} />
+            <Mail size={16} />
+            <span>
+              <small>EMAIL</small>
+              {SITE.email}
+            </span>
+            <ArrowUpRight size={16} />
           </a>
-          <a href={SOCIALS.github} target="_blank" rel="noopener noreferrer">
-            <Github size={17} />
-            <span>github.com/{SITE.handle}</span>
-            <ArrowUpRight size={15} />
+          <a
+            href="https://wa.me/919494992398"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Phone size={16} />
+            <span>
+              <small>PHONE / WHATSAPP</small>
+              +91 94949 92398
+            </span>
+            <ArrowUpRight size={16} />
           </a>
-          <a href={SOCIALS.linkedin} target="_blank" rel="noopener noreferrer">
-            <Linkedin size={17} />
-            <span>LinkedIn · {SITE.name}</span>
-            <ArrowUpRight size={15} />
+          <a
+            href={SOCIALS.linkedin}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Globe size={16} />
+            <span>
+              <small>LINKEDIN</small>
+              divyesh-kolli
+            </span>
+            <ArrowUpRight size={16} />
           </a>
-        </div>
-        <p className="contact-location">
-          <MapPin size={14} aria-hidden />
-          <span>
-            {SITE.location} · {SITE.university} ({SITE.studyPeriod})
-          </span>
-        </p>
-      </div>
-      <form
-        onSubmit={onSubmit}
-        aria-label="Contact form"
-        className="contact-form"
-        onChange={() => {
-          if (status !== "sending") {
-            setStatus("idle");
-            setMessage("");
-            setDraft("");
-          }
-        }}
-      >
-        <div className="form-pair">
+          <a
+            href={SOCIALS.x}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <XIcon size={15} />
+            <span>
+              <small>X (TWITTER)</small>
+              @_divyesh8
+            </span>
+            <ArrowUpRight size={16} />
+          </a>
+          <a
+            href={SOCIALS.github}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Github size={16} />
+            <span>
+              <small>GITHUB</small>
+              {SITE.handle}
+            </span>
+            <ArrowUpRight size={16} />
+          </a>
           <div>
-            <label htmlFor="name">Name</label>
-            <Input
-              id="name"
+            <MapPin size={16} />
+            <span>
+              <small>BASED IN</small>
+              {SITE.location}
+            </span>
+          </div>
+        </div>
+
+        {/* Interactive 3D Reel Card */}
+        <div className="contact-reel">
+          <button
+            type="button"
+            onClick={() => onSelectProject?.("aegisops")}
+            aria-label="View AegisOps featured architecture reel"
+          >
+            <div className="reel-screen">
+              <span className="reel-screen-top">
+                AEGISOPS <span>SYSTEM REEL</span>
+              </span>
+              <img
+                src="/projects/aegisops.webp"
+                alt="AegisOps system architecture overview"
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  opacity: 0.35,
+                  filter: "saturate(0.5)",
+                }}
+              />
+              <span className="reel-screen-title display">
+                BUILD <br />
+                <span>SMARTER.</span>
+              </span>
+              <span className="play-circle">
+                <Play size={18} fill="currentColor" />
+              </span>
+            </div>
+            <span className="reel-caption">
+              AEGISOPS — CLOUD RELIABILITY PLATFORM
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {/* Expandable Project Brief */}
+      <details className="project-brief">
+        <summary>
+          Tell me about your project or opportunity <Plus size={19} />
+        </summary>
+        <form onSubmit={handleSubmit}>
+          <label>
+            Your Name
+            <input
               name="name"
               required
-              minLength={2}
-              maxLength={100}
+              placeholder="Name or company"
               autoComplete="name"
-              placeholder="Your name"
+              maxLength={100}
             />
-          </div>
-          <div>
-            <label htmlFor="email">Email</label>
-            <Input
-              id="email"
-              name="email"
-              type="email"
+          </label>
+          <label>
+            Inquiry Type
+            <select name="type">
+              <option>Cloud Infrastructure &amp; DevOps</option>
+              <option>Site Reliability Engineering (SRE)</option>
+              <option>Backend / Systems Engineering</option>
+              <option>Full-Stack Web Application</option>
+              <option>Software Internship / Role</option>
+              <option>Something else</option>
+            </select>
+          </label>
+          <label className="brief-message">
+            About the project / role
+            <textarea
+              name="message"
               required
-              maxLength={200}
-              autoComplete="email"
-              placeholder="you@example.com"
+              rows={3}
+              placeholder="Tell me about your architecture, role, or idea…"
+              maxLength={3000}
             />
-          </div>
-        </div>
-        <label htmlFor="message">Message</label>
-        <Textarea
-          id="message"
-          name="message"
-          required
-          minLength={10}
-          maxLength={4000}
-          rows={5}
-          placeholder="Tell me about the role, team, or project…"
-        />
-        <div aria-hidden className="sr-only">
-          <label htmlFor="company">Company</label>
-          <input id="company" name="company" tabIndex={-1} autoComplete="off" />
-        </div>
-        <div className="form-send">
-          <Button type="submit" size="lg" disabled={status === "sending"}>
-            {status === "sending" ? (
-              <>
-                <Loader2 className="animate-spin" /> Sending
-              </>
-            ) : status === "sent" ? (
-              <>
-                <Check /> Sent
-              </>
-            ) : (
-              <>
-                Send message <Send />
-              </>
-            )}
-          </Button>
-          <p role="status" aria-live="polite">
-            {message}
+          </label>
+          <button className="solid-button" type="submit" disabled={submitting}>
+            {submitting ? "Sending…" : "Send Message & Continue on WhatsApp"}
+            <ArrowUpRight size={18} />
+          </button>
+          <p className="form-note" role="status">
+            {sent
+              ? "Message saved and WhatsApp draft prepared!"
+              : "Submits to Divyesh's inbox and prepares a direct WhatsApp chat."}
           </p>
-          {draft && (
-            <a className="text-link" href={draft}>
-              Open email draft <ArrowUpRight size={15} />
-            </a>
-          )}
-        </div>
-      </form>
+        </form>
+      </details>
     </section>
   );
 }

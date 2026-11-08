@@ -43,16 +43,12 @@ interface SectionStat {
 }
 
 const TRACKED_SECTIONS: ReadonlyArray<{ id: string; label: string }> = [
-  { id: "hero", label: "Hero (Intro & Portrait)" },
-  { id: "work", label: "01 / Selected Work (Projects)" },
-  { id: "inside", label: "Field Notes / Inside AegisOps" },
-  { id: "about", label: "02 / About & Education" },
-  { id: "skills", label: "03 / Technical Skills" },
-  { id: "journey", label: "04 / Engineering Journey" },
-  { id: "github", label: "05 / GitHub Activity" },
-  { id: "profiles", label: "Elsewhere (Social Profiles)" },
-  { id: "resume", label: "06 / Résumé" },
-  { id: "contact", label: "07 / Contact" },
+  { id: "home", label: "Hero (Intro & Portrait)" },
+  { id: "portfolio", label: "01 / Selected Work (Projects)" },
+  { id: "breakdown", label: "System Under the Hood (Comparison)" },
+  { id: "about", label: "02 / About & Philosophy" },
+  { id: "experience", label: "03 / Engineering Journey & Milestones" },
+  { id: "contact", label: "04 / Contact & Project Brief" },
 ];
 
 const IDLE_THRESHOLD_MS = 30_000;

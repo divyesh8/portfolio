@@ -1,53 +1,20 @@
 "use client";
 
 import { useRef } from "react";
-import Image from "next/image";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { ArrowDown, ArrowUpRight, MapPin, MoveDownRight } from "lucide-react";
-import { HeroLink } from "@/components/shared/hero-link";
-import { EASE, useReducedMotionSafe } from "@/components/shared/motion";
-import { TypingText } from "@/components/shared/typing-text";
-import { FEATURED_SLUGS, HERO } from "@/constants/content";
-import { SITE } from "@/constants/site";
+import { ArrowDown, ArrowUpRight, MapPin, Play } from "lucide-react";
+import { useReducedMotion } from "@/hooks/use-media-query";
 
-function PortfolioLettering() {
-  return (
-    <svg
-      className="poster-lettering"
-      viewBox="0 0 1200 285"
-      preserveAspectRatio="none"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <defs>
-        <linearGradient
-          id="portfolio-ink"
-          x1="0"
-          y1="0"
-          x2="0"
-          y2="1"
-          gradientUnits="objectBoundingBox"
-        >
-          <stop offset="0%" className="ink-top" />
-          <stop offset="100%" className="ink-base" />
-        </linearGradient>
-      </defs>
-      <text
-        x="0"
-        y="265"
-        textLength="1200"
-        lengthAdjust="spacingAndGlyphs"
-        fill="url(#portfolio-ink)"
-      >
-        PORTFOLIO
-      </text>
-    </svg>
-  );
-}
+const EASE_QUINT = [0.22, 1, 0.36, 1] as const;
 
-export function Hero() {
+export function Hero({
+  onSelectProject,
+}: {
+  onSelectProject?: (slug: string) => void;
+}) {
   const heroRef = useRef<HTMLElement>(null);
-  const reduced = useReducedMotionSafe();
+  const reduced = useReducedMotion();
+
   const { scrollYProgress } = useScroll({
     target: heroRef,
     offset: ["start start", "end start"],
@@ -59,150 +26,140 @@ export function Hero() {
   const introY = useTransform(scrollYProgress, [0, 1], [0, -55]);
 
   return (
-    <section
-      id="hero"
-      ref={heroRef}
-      aria-labelledby="poster-title"
-      className="folio-hero"
-    >
-      <div className="shell">
-        <div className="poster-stage">
-          <div className="poster-register">
-            <div>
-              <span>Cloud &amp; full-stack</span>
-              <span>Engineering portfolio</span>
-            </div>
-            <span className="poster-status">
-              <i aria-hidden /> Open to internships
-            </span>
-          </div>
-
-          <div className="poster-art">
-            <motion.div
-              className="poster-lettering-wrap"
-              style={reduced ? undefined : { y: titleY }}
-              initial={reduced ? false : { clipPath: "inset(0 0 100% 0)" }}
-              animate={{ clipPath: "inset(0 0 0% 0)" }}
-              transition={{ duration: 1.4, ease: EASE }}
-            >
-              <PortfolioLettering />
-            </motion.div>
-
-            <motion.figure
-              className="poster-portrait"
-              style={
-                reduced ? undefined : { y: portraitY, scale: portraitScale }
-              }
-              initial={reduced ? false : { opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 1.2, delay: 0.2, ease: EASE }}
-            >
-              <div className="portrait-silhouette">
-                <Image
-                  src={SITE.portrait}
-                  alt={`Portrait of ${SITE.name}`}
-                  width={960}
-                  height={1280}
-                  sizes="(max-width: 600px) 90vw, (max-width: 960px) 65vw, 48vw"
-                  draggable={false}
-                  priority
-                />
-              </div>
-            </motion.figure>
-          </div>
-
-          <motion.div
-            className="poster-copy"
-            style={reduced ? undefined : { y: introY }}
-            initial={reduced ? false : { opacity: 0, x: -35 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.9, delay: 0.35, ease: EASE }}
-          >
-            <p className="handwritten poster-hello">Hello, I’m</p>
-            <h1 id="poster-title">
-              {SITE.name}
-              <i>.</i>
-            </h1>
-            <div className="poster-role">
-              <TypingText words={HERO.roles} />
-            </div>
-            <p className="poster-intro">{HERO.intro}</p>
-            <div className="poster-actions">
-              <HeroLink href="#work" className="folio-button">
-                View my work <ArrowDown size={16} aria-hidden />
-              </HeroLink>
-              <HeroLink
-                href={SITE.resumePath}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="poster-resume"
-              >
-                Résumé <ArrowUpRight size={14} aria-hidden />
-              </HeroLink>
-            </div>
-            <p className="poster-location">
-              <MapPin size={12} aria-hidden />
-              {SITE.location}
-            </p>
-          </motion.div>
-
-          <motion.aside
-            className="poster-aside"
-            aria-label="Portfolio at a glance"
-            initial={reduced ? false : { opacity: 0, x: 30 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 1.0, delay: 0.55, ease: EASE }}
-          >
-            <div className="poster-manifesto">
-              <span className="folio-asterisk" aria-hidden>
-                ✳
-              </span>
-              <p>
-                Building reliable software,
-                <br />
-                from code to cloud.
-              </p>
-            </div>
-            <div className="poster-facts">
-              <HeroLink href="#work">
-                <strong>
-                  {String(FEATURED_SLUGS.length).padStart(2, "0")}
-                </strong>
-                <span>
-                  Selected
-                  <br />
-                  engineering builds
-                </span>
-                <ArrowUpRight size={13} />
-              </HeroLink>
-              <HeroLink href="#about">
-                <strong>’{String(SITE.graduation).slice(-2)}</strong>
-                <span>
-                  Graduating class
-                  <br />
-                  SRM Institute
-                </span>
-                <ArrowUpRight size={13} />
-              </HeroLink>
-            </div>
-          </motion.aside>
-        </div>
-
-        <div className="poster-foot">
-          <HeroLink href="#inside">
-            <span className="folio-round">
-              <MoveDownRight size={14} />
-            </span>
-            <b>Inside AegisOps</b>
-            <span className="foot-kind">Field notes / 01</span>
-          </HeroLink>
-          <HeroLink href="#work" className="poster-scroll">
-            Scroll to explore <ArrowDown size={13} />
-          </HeroLink>
-          <span className="foot-edition">
-            Personal portfolio <i>/</i> {new Date().getFullYear()}
+    <section id="home" className="hero" ref={heroRef}>
+      <div className="hero-top">
+        <span>
+          CLOUD &amp; FULL-STACK DEVELOPER <br />
+          <span className="muted">PLATFORM &amp; SRE</span>
+        </span>
+        <span className="availability">
+          <i />
+          <span>
+            AVAILABLE <span className="avail-long">FOR NEW ROLES</span>
           </span>
+        </span>
+      </div>
+
+      <motion.div
+        className="hero-title display"
+        aria-hidden="true"
+        style={reduced ? undefined : { y: titleY }}
+        initial={reduced ? false : { clipPath: "inset(0 0 100% 0)" }}
+        animate={{ clipPath: "inset(0 0 0% 0)" }}
+        transition={{ duration: 1.4, ease: EASE_QUINT }}
+      >
+        PORTFOLIO
+      </motion.div>
+
+      <motion.div
+        className="hero-portrait"
+        style={
+          reduced ? undefined : { y: portraitY, scale: portraitScale }
+        }
+        initial={reduced ? false : { opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 1.2, delay: 0.2 }}
+      >
+        <img
+          src="/divyesh-kolli.webp"
+          alt="Divyesh Kolli, Cloud & Full-Stack Developer"
+          width={960}
+          height={1280}
+          fetchPriority="high"
+        />
+      </motion.div>
+
+      <motion.div
+        className="hero-intro"
+        style={reduced ? undefined : { y: introY }}
+        initial={reduced ? false : { opacity: 0, x: -35 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.9, delay: 0.35, ease: EASE_QUINT }}
+      >
+        <p className="handwriting">Hello, I’m</p>
+        <h1 className="display">
+          DIVYESH<span>.</span>
+        </h1>
+        <p className="hero-role">
+          CLOUD &amp; FULL-STACK
+          <br />
+          DEVELOPER
+        </p>
+        <p className="hero-description">
+          Building reliable software, from code to cloud.
+          <br />
+          I study cloud computing at SRM in Chennai and build backend services and observability tools.
+        </p>
+        <a href="#portfolio" className="primary-link">
+          See my work <ArrowDown size={17} />
+        </a>
+        <span className="hero-location">
+          <MapPin size={12} /> CHENNAI, INDIA
+        </span>
+      </motion.div>
+
+      <motion.div
+        className="hero-side"
+        initial={reduced ? false : { opacity: 0, x: 30 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 1, delay: 0.55, ease: EASE_QUINT }}
+      >
+        <div className="hero-manifesto">
+          <span className="crosshair" aria-hidden="true">
+            ✳
+          </span>
+          <p>
+            Every line.
+            <br />A purpose.
+          </p>
         </div>
+        <div className="hero-stats">
+          <div>
+            <span className="display">
+              04<span>+</span>
+            </span>
+            <p>
+              FEATURED BUILDS
+              <br />
+              FOR THE CLOUD
+            </p>
+          </div>
+          <div>
+            <span className="display">'29</span>
+            <p>
+              GRADUATING CLASS
+              <br />
+              SRM INSTITUTE
+            </p>
+          </div>
+          <div className="hero-award-stat">
+            <span className="display">
+              100<span>%</span>
+            </span>
+            <a href="#about" aria-label="View reliability philosophy">
+              OBSERVABLE &amp;
+              <br />
+              VERIFIABLE <ArrowUpRight size={12} />
+            </a>
+          </div>
+        </div>
+      </motion.div>
+
+      <div className="hero-bottom">
+        <button
+          type="button"
+          className="reel-button"
+          onClick={() => onSelectProject?.("aegisops")}
+        >
+          <span className="play-circle">
+            <Play size={12} fill="currentColor" />
+          </span>
+          VIEW FEATURED BUILD <span className="muted">AEGISOPS</span>
+        </button>
+        <span className="hero-scroll">
+          SCROLL TO DISCOVER <ArrowDown size={13} />
+        </span>
+        <span className="edition">SELECTED WORK / 2025–2029</span>
       </div>
     </section>
   );

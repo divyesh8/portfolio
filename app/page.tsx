@@ -1,42 +1,66 @@
-import dynamic from "next/dynamic";
-import { SiteChrome } from "@/components/layout/site-chrome";
-import { Footer } from "@/components/layout/footer";
-import { Hero } from "@/components/sections/hero";
-import { FieldNotes } from "@/components/sections/field-notes";
-import { About } from "@/components/sections/about";
-import { Skills } from "@/components/sections/skills";
-import { Projects } from "@/components/sections/projects";
-import { Journey } from "@/components/sections/journey";
-import { GitHubSection } from "@/components/sections/github";
-import { Profiles } from "@/components/sections/profiles";
+"use client";
 
-/* Keep the résumé preview and contact form outside the initial hero bundle. */
-const Resume = dynamic(() =>
-  import("@/components/sections/resume").then((m) => m.Resume),
-);
-const Contact = dynamic(() =>
-  import("@/components/sections/contact").then((m) => m.Contact),
-);
+import { useState } from "react";
+import { motion, useScroll, useSpring } from "framer-motion";
+import { Navbar } from "@/components/layout/navbar";
+import { Hero } from "@/components/sections/hero";
+import { Portfolio } from "@/components/sections/portfolio";
+import { Breakdown } from "@/components/sections/breakdown";
+import { About } from "@/components/sections/about";
+import { Journey } from "@/components/sections/journey";
+import { Contact } from "@/components/sections/contact";
+import { Footer } from "@/components/layout/footer";
+import { ProjectDialog } from "@/components/shared/project-dialog";
+import { VisitorBeacon } from "@/components/layout/visitor-beacon";
+import { useReducedMotion } from "@/hooks/use-media-query";
 
 export default function HomePage() {
+  const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
+  const reduced = useReducedMotion();
+
+  const { scrollYProgress } = useScroll();
+  const scaleX = useSpring(scrollYProgress, {
+    stiffness: 100,
+    damping: 28,
+    restDelta: 0.001,
+  });
+
   return (
     <>
-      <SiteChrome />
+      <a className="skip-link" href="#portfolio">
+        Skip to work
+      </a>
 
-      <main id="main" tabIndex={-1}>
-        <Hero />
-        <Projects />
-        <FieldNotes />
+      {/* Top red reading progress bar */}
+      <motion.div
+        className="reading-progress"
+        style={{ scaleX: reduced ? scrollYProgress : scaleX }}
+      />
+
+      {/* Header */}
+      <Navbar />
+
+      {/* Main Sections matching Touquir Akhtar */}
+      <main>
+        <Hero onSelectProject={setSelectedSlug} />
+        <Portfolio onSelectProject={setSelectedSlug} />
+        <Breakdown />
         <About />
-        <Skills />
-        <Journey />
-        <GitHubSection />
-        <Profiles />
-        <Resume />
-        <Contact />
+        <Journey onSelectProject={setSelectedSlug} />
+        <Contact onSelectProject={setSelectedSlug} />
       </main>
 
+      {/* Footer */}
       <Footer />
+
+      {/* Modal Dialog */}
+      <ProjectDialog
+        slug={selectedSlug}
+        onClose={() => setSelectedSlug(null)}
+      />
+
+      {/* Live Visitor & Activity Telemetry */}
+      <VisitorBeacon />
     </>
   );
 }

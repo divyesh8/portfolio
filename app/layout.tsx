@@ -5,8 +5,6 @@ import "@fontsource/caveat/latin-500.css";
 import { MotionSettings } from "@/components/layout/motion-settings";
 import { SITE, SOCIALS } from "@/constants/site";
 import "./globals.css";
-import "./editorial.css";
-import "./chapters.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
