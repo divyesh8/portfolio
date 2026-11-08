@@ -17,6 +17,35 @@ const escapeHtml = (value: string) =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 
+function formatDuration(seconds: number): string {
+  const s = Math.max(0, Math.round(seconds));
+  if (s < 60) return `${s}s`;
+  const mins = Math.floor(s / 60);
+  const remSec = s % 60;
+  if (mins < 60) return remSec > 0 ? `${mins}m ${remSec}s` : `${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  const remMin = mins % 60;
+  return `${hrs}h ${remMin}m ${remSec}s`;
+}
+
+function formatOffset(sec: number): string {
+  const s = Math.max(0, Math.round(sec));
+  const mins = Math.floor(s / 60);
+  const rem = s % 60;
+  return `+${String(mins).padStart(2, "0")}:${String(rem).padStart(2, "0")}`;
+}
+
+function formatIst(isoOrDate: string | Date): string {
+  const d =
+    typeof isoOrDate === "string" ? new Date(isoOrDate) : isoOrDate;
+  if (Number.isNaN(d.getTime())) return "Unavailable";
+  return `${new Intl.DateTimeFormat("en-IN", {
+    timeZone: "Asia/Kolkata",
+    dateStyle: "full",
+    timeStyle: "medium",
+  }).format(d)} IST`;
+}
+
 function parseUserAgent(ua: string) {
   let browser = "Unknown Browser";
   if (/Edg\/([\d.]+)/.test(ua)) {
@@ -182,7 +211,10 @@ async function reverseGeocodeCoords(
         ? (data.address as Record<string, unknown>)
         : {};
     const placeParts = [
-      clean(addr.amenity || addr.building || addr.university || addr.college, 120),
+      clean(
+        addr.amenity || addr.building || addr.university || addr.college,
+        120,
+      ),
       clean(
         addr.suburb ||
           addr.neighbourhood ||
@@ -207,6 +239,48 @@ async function reverseGeocodeCoords(
   }
 }
 
+interface ParsedSectionItem {
+  label: string;
+  visited: boolean;
+  views: number;
+  dwellSec: number;
+  firstSeenSec: number;
+}
+
+interface ParsedActivityItem {
+  atOffsetSec: number;
+  timeLocal: string;
+  action: string;
+}
+
+function parseSections(raw: unknown): ParsedSectionItem[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"))
+    .map((item) => ({
+      label: clean(item.label, 120) || "Section",
+      visited: Boolean(item.visited),
+      views: typeof item.views === "number" ? item.views : 0,
+      dwellSec: typeof item.dwellSec === "number" ? item.dwellSec : 0,
+      firstSeenSec:
+        typeof item.firstSeenSec === "number" ? item.firstSeenSec : -1,
+    }));
+}
+
+function parseActivityLog(raw: unknown): ParsedActivityItem[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"))
+    .slice(0, 150)
+    .map((item) => ({
+      atOffsetSec:
+        typeof item.atOffsetSec === "number" ? item.atOffsetSec : 0,
+      timeLocal: clean(item.timeLocal, 40),
+      action: clean(item.action, 240),
+    }))
+    .filter((item) => Boolean(item.action));
+}
+
 export async function POST(request: Request) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
@@ -227,6 +301,10 @@ export async function POST(request: Request) {
   } catch {
     /* Optional client payload */
   }
+
+  const reportType = clean(body.reportType, 40) || "arrival";
+  const sessionId = clean(body.sessionId, 40) || "SES-DIRECT";
+  const exitReason = clean(body.exitReason, 120);
 
   const forwarded = request.headers.get("x-forwarded-for");
   const ip =
@@ -286,9 +364,6 @@ export async function POST(request: Request) {
       ? `${gpsLat}, ${gpsLon}${gpsAccuracy !== null ? ` (±${gpsAccuracy}m accuracy)` : ""}`
       : "";
 
-  // Only drop an exact coordinate pin on Google Maps when real GPS / Wi-Fi
-  // coordinates are available; ISP-only centroids point to generic city centers
-  // like Chennai Central rather than the visitor's actual suburb/campus.
   const mapsUrl =
     gpsLat !== null && gpsLon !== null
       ? `https://www.google.com/maps?q=${gpsLat},${gpsLon}`
@@ -297,12 +372,29 @@ export async function POST(request: Request) {
         : "";
 
   const now = new Date();
-  const istTime = new Intl.DateTimeFormat("en-IN", {
-    timeZone: "Asia/Kolkata",
-    dateStyle: "full",
-    timeStyle: "medium",
-  }).format(now);
-  const utcTime = now.toISOString();
+  const enteredIso = clean(body.enteredIso, 60);
+  const leftIso = clean(body.leftIso, 60);
+  const enteredIst = enteredIso ? formatIst(enteredIso) : formatIst(now);
+  const leftIst = leftIso ? formatIst(leftIso) : formatIst(now);
+
+  const totalDurationSec =
+    typeof body.totalDurationSec === "number" ? body.totalDurationSec : 0;
+  const activeDurationSec =
+    typeof body.activeDurationSec === "number" ? body.activeDurationSec : 0;
+  const idleDurationSec =
+    typeof body.idleDurationSec === "number" ? body.idleDurationSec : 0;
+  const maxScrollPercent =
+    typeof body.maxScrollPercent === "number" ? body.maxScrollPercent : 0;
+  const interactionCount =
+    typeof body.interactionCount === "number" ? body.interactionCount : 0;
+
+  const sections = parseSections(body.sectionBreakdown);
+  const visitedSections = sections.filter((s) => s.visited);
+  const unvisitedSections = sections.filter((s) => !s.visited);
+  const visitOrder = Array.isArray(body.visitOrder)
+    ? body.visitOrder.map((v) => clean(v, 100)).filter(Boolean)
+    : [];
+  const activityLog = parseActivityLog(body.activityLog);
 
   const { browser, os, deviceType, model } = parseUserAgent(ua);
   const visitorName = clean(body.visitorName, 120);
@@ -311,13 +403,14 @@ export async function POST(request: Request) {
     [visitorName, visitorEmail ? `<${visitorEmail}>` : ""]
       .filter(Boolean)
       .join(" ") ||
-    "Not shared (Browsers block reading personal names without Google Sign-In or form entry)";
+    "Not shared (No form entry / Google Sign-In yet)";
 
   const clientDevice = clean(body.platform, 120);
   const gpu = clean(body.gpu, 180) || "Unavailable";
   const clientTz =
     clean(body.timeZone, 100) || vercelTz || geo.timezone || "Unknown";
-  const clientLocalTime = clean(body.localTime, 120) || "Unavailable";
+  const enteredLocalTime = clean(body.localTime, 120) || "Unavailable";
+  const leftLocalTime = clean(body.leftLocalTime, 120) || "Unavailable";
   const screenInfo = clean(body.screen, 120) || "Unavailable";
   const viewportInfo = clean(body.viewport, 120) || "Unavailable";
   const language = clean(body.language, 80) || "Unavailable";
@@ -335,11 +428,51 @@ export async function POST(request: Request) {
     .filter(Boolean)
     .join(" — ");
 
-  const rows: Array<[string, string]> = [
+  const isExit = reportType === "exit";
+  const subjectPrefix =
+    reportType === "exit"
+      ? `Session Summary (${formatDuration(activeDurationSec)} active)`
+      : reportType === "location_update"
+        ? "Exact Location Pinpointed"
+        : reportType === "identity_update"
+          ? "Visitor Identified"
+          : "New Visitor Arrived";
+
+  const sessionRows: Array<[string, string]> = [
+    ["Session ID", sessionId],
     ["Visitor Name", visitorIdentity],
-    ["Date & Time (IST)", `${istTime} IST`],
-    ["Visitor Local Time", `${clientLocalTime} (${clientTz})`],
-    ["UTC Timestamp", utcTime],
+    ["Entered Page At", `${enteredIst} (Local: ${enteredLocalTime} · ${clientTz})`],
+    ...(isExit
+      ? [
+          [
+            "Left Page At",
+            `${leftIst} (Local: ${leftLocalTime})${exitReason ? ` — ${exitReason}` : ""}`,
+          ] as [string, string],
+        ]
+      : [["Report Sent At", leftIst] as [string, string]]),
+    [
+      "Active & Total Time",
+      `Active: ${formatDuration(activeDurationSec)} · Idle/Background: ${formatDuration(idleDurationSec)} · Total on Page: ${formatDuration(totalDurationSec)}`,
+    ],
+    [
+      "Engagement Summary",
+      `Scrolled ${maxScrollPercent}% of page · ${visitedSections.length}/${sections.length || 10} sections viewed · ${interactionCount} clicks/interactions`,
+    ],
+    [
+      "Navigation Flow",
+      visitOrder.length > 0 ? visitOrder.join(" → ") : "Hero only",
+    ],
+    ...(unvisitedSections.length > 0
+      ? [
+          [
+            "Sections Not Reached",
+            unvisitedSections.map((s) => s.label).join(", "),
+          ] as [string, string],
+        ]
+      : [["Sections Not Reached", "None (Viewed 100% of sections!)"] as [string, string]]),
+  ];
+
+  const deviceLocationRows: Array<[string, string]> = [
     ...(reversePlace
       ? [
           ["Exact Area / Campus", reversePlace.fullAddress] as [string, string],
@@ -347,8 +480,8 @@ export async function POST(request: Request) {
         ]
       : [
           [
-            "LocationPrecision",
-            "Approximate ISP Gateway only (Visitor did not grant browser Location permission)",
+            "Location Precision",
+            "Approximate ISP Gateway only (Browser Location permission not granted)",
           ] as [string, string],
         ]),
     ["ISP Gateway Region", ipRegionLabel],
@@ -361,44 +494,127 @@ export async function POST(request: Request) {
     ["Screen & Display", `${screenInfo} (Viewport: ${viewportInfo})`],
     ["Hardware & Network", `${hardware} · Connection: ${connection}`],
     ["Language & Theme", `${language} · Theme: ${theme}`],
-    ["Page Visited", pageUrl],
+    ["Entry URL", pageUrl],
     ["Referrer / Source", referrer],
     ["User-Agent", ua],
   ];
 
-  const isUpdate = Boolean(body.locationUpdate || body.identityUpdate);
-  const subjectPrefix = body.locationUpdate
-    ? "Exact Location Pinpointed"
-    : body.identityUpdate
-      ? "Visitor Identified"
-      : "Visitor Alert";
+  const sectionLinesText =
+    visitedSections.length > 0
+      ? visitedSections.map(
+          (s) =>
+            `  • ${s.label}: ${formatDuration(s.dwellSec)} (${s.dwellSec}s, viewed ${s.views}x, first seen at ${formatOffset(s.firstSeenSec)})`,
+        )
+      : ["  • None recorded"];
+
+  const activityLinesText =
+    activityLog.length > 0
+      ? activityLog.map(
+          (a, i) =>
+            `  ${String(i + 1).padStart(2, "0")}. [${formatOffset(a.atOffsetSec)} | ${a.timeLocal}] ${a.action}`,
+        )
+      : ["  • No interactions recorded"];
 
   const textBody = [
-    `${subjectPrefix} on ${SITE.name}'s Portfolio (${SITE.url})`,
+    `${subjectPrefix} — ${SITE.name}'s Portfolio (${SITE.url})`,
+    "============================================================",
+    "",
+    "1. SESSION TIMING & ENGAGEMENT",
     "------------------------------------------------------------",
-    ...rows.map(([label, val]) => `${label}: ${val}`),
+    ...sessionRows.map(([k, v]) => `${k}: ${v}`),
+    "",
+    "2. SECTIONS VISITED & TIME SPENT",
+    "------------------------------------------------------------",
+    ...sectionLinesText,
+    "",
+    "3. COMPLETE ACTIVITY TIMELINE (EVERY ACTION)",
+    "------------------------------------------------------------",
+    ...activityLinesText,
+    "",
+    "4. LOCATION, NETWORK & DEVICE DETAILS",
+    "------------------------------------------------------------",
+    ...deviceLocationRows.map(([k, v]) => `${k}: ${v}`),
     ...(mapsUrl ? [`Google Maps: ${mapsUrl}`] : []),
   ].join("\n");
 
-  const htmlRows = rows
-    .map(
-      ([label, val]) => `
-      <tr>
-        <td style="padding:8px 12px;border-bottom:1px solid #262626;color:#a09c9a;font-family:monospace;font-size:12px;white-space:nowrap;vertical-align:top;">${escapeHtml(label)}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #262626;color:#f2efeb;font-family:system-ui,-apple-system,sans-serif;font-size:13px;word-break:break-word;">${escapeHtml(val)}</td>
-      </tr>`,
-    )
-    .join("");
+  const renderHtmlTableRows = (rows: Array<[string, string]>) =>
+    rows
+      .map(
+        ([label, val]) => `
+        <tr>
+          <td style="padding:8px 12px;border-bottom:1px solid #242424;color:#a09c9a;font-family:monospace;font-size:12px;white-space:nowrap;vertical-align:top;">${escapeHtml(label)}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #242424;color:#f2efeb;font-family:system-ui,-apple-system,sans-serif;font-size:13px;word-break:break-word;">${escapeHtml(val)}</td>
+        </tr>`,
+      )
+      .join("");
+
+  const sectionHtmlRows =
+    visitedSections.length > 0
+      ? visitedSections
+          .map(
+            (s) => `
+          <tr>
+            <td style="padding:7px 12px;border-bottom:1px solid #242424;color:#f2efeb;font-size:13px;">${escapeHtml(s.label)}</td>
+            <td style="padding:7px 12px;border-bottom:1px solid #242424;color:#f04858;font-family:monospace;font-size:12px;white-space:nowrap;">${escapeHtml(formatDuration(s.dwellSec))} (${s.dwellSec}s)</td>
+            <td style="padding:7px 12px;border-bottom:1px solid #242424;color:#a09c9a;font-family:monospace;font-size:12px;white-space:nowrap;">${s.views}x · at ${escapeHtml(formatOffset(s.firstSeenSec))}</td>
+          </tr>`,
+          )
+          .join("")
+      : `<tr><td colspan="3" style="padding:8px 12px;color:#a09c9a;font-size:13px;">No sections recorded yet.</td></tr>`;
+
+  const activityHtmlRows =
+    activityLog.length > 0
+      ? activityLog
+          .map(
+            (a, idx) => `
+          <tr>
+            <td style="padding:6px 10px;border-bottom:1px solid #202020;color:#8e8a87;font-family:monospace;font-size:11px;white-space:nowrap;vertical-align:top;">#${idx + 1} · ${escapeHtml(formatOffset(a.atOffsetSec))}</td>
+            <td style="padding:6px 10px;border-bottom:1px solid #202020;color:#a09c9a;font-family:monospace;font-size:11px;white-space:nowrap;vertical-align:top;">${escapeHtml(a.timeLocal)}</td>
+            <td style="padding:6px 10px;border-bottom:1px solid #202020;color:#f2efeb;font-size:13px;word-break:break-word;">${escapeHtml(a.action)}</td>
+          </tr>`,
+          )
+          .join("")
+      : `<tr><td colspan="3" style="padding:8px 12px;color:#a09c9a;font-size:13px;">No actions recorded.</td></tr>`;
 
   const headingWho = visitorName || locationLabel;
+  const badgeText = isExit
+    ? `SESSION EXIT & FULL ACTIVITY REPORT · ${sessionId}`
+    : `${subjectPrefix.toUpperCase()} · ${sessionId}`;
+
   const htmlBody = `
   <div style="background:#090909;color:#f2efeb;padding:24px;font-family:system-ui,-apple-system,sans-serif;">
-    <div style="max-width:640px;margin:0 auto;border:1px solid #2a2a2a;background:#121212;border-top:3px solid #e32b3c;padding:20px;">
-      <p style="margin:0 0 4px;font-family:monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#e32b3c;">${escapeHtml(isUpdate ? subjectPrefix : "Portfolio Visitor Telemetry")}</p>
-      <h2 style="margin:0 0 16px;font-size:20px;color:#f2efeb;">${escapeHtml(headingWho)} · ${escapeHtml(deviceType)} (${escapeHtml(clientDevice || os)})</h2>
-      <table style="width:100%;border-collapse:collapse;">
-        <tbody>${htmlRows}</tbody>
+    <div style="max-width:700px;margin:0 auto;border:1px solid #2a2a2a;background:#121212;border-top:3px solid #e32b3c;padding:22px;">
+      <p style="margin:0 0 4px;font-family:monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#e32b3c;">${escapeHtml(badgeText)}</p>
+      <h2 style="margin:0 0 6px;font-size:20px;color:#f2efeb;">${escapeHtml(headingWho)} · ${escapeHtml(deviceType)} (${escapeHtml(clientDevice || os)})</h2>
+      <p style="margin:0 0 18px;font-family:monospace;font-size:12px;color:#a09c9a;">Active: <strong style="color:#f2efeb;">${escapeHtml(formatDuration(activeDurationSec))}</strong> · Scroll Depth: <strong style="color:#f2efeb;">${maxScrollPercent}%</strong> · Actions: <strong style="color:#f2efeb;">${interactionCount}</strong></p>
+
+      <h3 style="margin:18px 0 8px;font-family:monospace;font-size:11px;letter-spacing:0.09em;text-transform:uppercase;color:#f04858;">1. Session Timing &amp; Engagement</h3>
+      <table style="width:100%;border-collapse:collapse;background:#0e0e0e;border:1px solid #242424;">
+        <tbody>${renderHtmlTableRows(sessionRows)}</tbody>
       </table>
+
+      <h3 style="margin:22px 0 8px;font-family:monospace;font-size:11px;letter-spacing:0.09em;text-transform:uppercase;color:#f04858;">2. Sections Visited &amp; Time Spent</h3>
+      <table style="width:100%;border-collapse:collapse;background:#0e0e0e;border:1px solid #242424;">
+        <thead>
+          <tr style="background:#171717;">
+            <th align="left" style="padding:7px 12px;font-family:monospace;font-size:11px;color:#a09c9a;border-bottom:1px solid #2a2a2a;">Section</th>
+            <th align="left" style="padding:7px 12px;font-family:monospace;font-size:11px;color:#a09c9a;border-bottom:1px solid #2a2a2a;">Time Spent</th>
+            <th align="left" style="padding:7px 12px;font-family:monospace;font-size:11px;color:#a09c9a;border-bottom:1px solid #2a2a2a;">Views / First Seen</th>
+          </tr>
+        </thead>
+        <tbody>${sectionHtmlRows}</tbody>
+      </table>
+
+      <h3 style="margin:22px 0 8px;font-family:monospace;font-size:11px;letter-spacing:0.09em;text-transform:uppercase;color:#f04858;">3. Complete Activity Timeline (${activityLog.length} events)</h3>
+      <table style="width:100%;border-collapse:collapse;background:#0e0e0e;border:1px solid #242424;">
+        <tbody>${activityHtmlRows}</tbody>
+      </table>
+
+      <h3 style="margin:22px 0 8px;font-family:monospace;font-size:11px;letter-spacing:0.09em;text-transform:uppercase;color:#f04858;">4. Location, Network &amp; Device Profile</h3>
+      <table style="width:100%;border-collapse:collapse;background:#0e0e0e;border:1px solid #242424;">
+        <tbody>${renderHtmlTableRows(deviceLocationRows)}</tbody>
+      </table>
+
       ${
         mapsUrl
           ? `<p style="margin:16px 0 0;font-size:12px;"><a href="${escapeHtml(mapsUrl)}" style="color:#f04858;text-decoration:none;font-family:monospace;">${gpsLat !== null ? "Open exact GPS / Wi-Fi pin on Google Maps &rarr;" : "View ISP gateway city on Google Maps &rarr;"}</a></p>`
@@ -423,7 +639,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         from: `Portfolio Visitor <${fromAddress}>`,
         to: [toAddress],
-        subject: `${subjectPrefix}: ${visitorName ? `${visitorName} (${locationLabel})` : locationLabel} · ${deviceType} (${os}, ${browser.split(" ")[0]})`,
+        subject: `${subjectPrefix}: ${visitorName ? `${visitorName} (${locationLabel})` : locationLabel} · ${deviceType} [${sessionId}]`,
         text: textBody,
         html: htmlBody,
       }),
