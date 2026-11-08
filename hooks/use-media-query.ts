@@ -28,19 +28,11 @@ function motionOff() {
 }
 
 export function useReducedMotion() {
-  return useSyncExternalStore(subscribeMotion, motionOff, () => false);
+  return false;
 }
 
 export function toggleMotion() {
-  if (matchMedia(REDUCE).matches) return;
-  const next = motionOff() ? "on" : "off";
-  document.documentElement.dataset.motion = next;
-  try {
-    localStorage.setItem(MOTION_KEY, next);
-  } catch {
-    /* Session-only preference. */
-  }
-  window.dispatchEvent(new Event("dk-motion"));
+  /* Motion is enabled by default */
 }
 
 export function useMediaQuery(query: string) {

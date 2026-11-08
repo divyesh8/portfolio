@@ -94,14 +94,10 @@ const jsonLd = {
 
 /** Set the theme before first paint so there is never a flash. */
 const themeScript = `
-(function(){try{
-  var t = localStorage.getItem('dk-theme');
-  document.documentElement.dataset.theme = (t === 'light' || t === 'dark') ? t : 'dark';
-}catch(e){document.documentElement.dataset.theme='dark';}
-try{
-  var off = window.matchMedia('(prefers-reduced-motion: reduce)').matches || localStorage.getItem('dk-motion') === 'off';
-  document.documentElement.dataset.motion = off ? 'off' : 'on';
-}catch(e){document.documentElement.dataset.motion='off';}})();
+(function(){
+  document.documentElement.dataset.theme = 'dark';
+  document.documentElement.dataset.motion = 'on';
+})();
 `;
 
 export default function RootLayout({

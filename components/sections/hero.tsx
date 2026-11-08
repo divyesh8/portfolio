@@ -63,8 +63,8 @@ export function Hero({
         <img
           src="/divyesh-kolli.webp"
           alt="Divyesh Kolli, Cloud & Full-Stack Developer"
-          width={960}
-          height={1280}
+          width={700}
+          height={830}
           fetchPriority="high"
         />
       </motion.div>

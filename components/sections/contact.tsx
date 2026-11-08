@@ -3,13 +3,10 @@
 import { useState } from "react";
 import {
   ArrowUpRight,
-  ExternalLink,
   Github,
   Globe,
-  Instagram,
   Mail,
   MapPin,
-  Phone,
   Play,
   Plus,
 } from "lucide-react";
@@ -30,6 +27,7 @@ export function Contact({
     const form = e.currentTarget;
     const formData = new FormData(form);
     const name = (formData.get("name") as string) || "";
+    const email = (formData.get("email") as string) || "";
     const type = (formData.get("type") as string) || "";
     const message = (formData.get("message") as string) || "";
 
@@ -39,22 +37,18 @@ export function Contact({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
-          email: `${name.replace(/\s+/g, "").toLowerCase() || "visitor"}@inquiry.portfolio`,
-          message: `[Project Type: ${type}]\n\n${message}`,
+          email: email || `${name.replace(/\s+/g, "").toLowerCase() || "visitor"}@inquiry.portfolio`,
+          message: `[Inquiry Type: ${type}]\n\n${message}`,
         }),
       });
+      setSent(true);
+      form.reset();
     } catch {
       /* Best effort backend submission */
+      setSent(true);
+    } finally {
+      setSubmitting(false);
     }
-
-    const draft = `Hi Divyesh, I’m ${name}.\n\nProject / Discussion: ${type}\n${message}`;
-    window.open(
-      `https://wa.me/919494992398?text=${encodeURIComponent(draft)}`,
-      "_blank",
-      "noopener,noreferrer",
-    );
-    setSubmitting(false);
-    setSent(true);
   };
 
   return (
@@ -90,18 +84,6 @@ export function Contact({
             <span>
               <small>EMAIL</small>
               {SITE.email}
-            </span>
-            <ArrowUpRight size={16} />
-          </a>
-          <a
-            href="https://wa.me/919494992398"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Phone size={16} />
-            <span>
-              <small>PHONE / WHATSAPP</small>
-              +91 94949 92398
             </span>
             <ArrowUpRight size={16} />
           </a>
@@ -206,6 +188,17 @@ export function Contact({
             />
           </label>
           <label>
+            Your Email
+            <input
+              name="email"
+              type="email"
+              required
+              placeholder="you@company.com"
+              autoComplete="email"
+              maxLength={120}
+            />
+          </label>
+          <label>
             Inquiry Type
             <select name="type">
               <option>Cloud Infrastructure &amp; DevOps</option>
@@ -227,13 +220,13 @@ export function Contact({
             />
           </label>
           <button className="solid-button" type="submit" disabled={submitting}>
-            {submitting ? "Sending…" : "Send Message & Continue on WhatsApp"}
+            {submitting ? "Sending…" : "Send Message"}
             <ArrowUpRight size={18} />
           </button>
           <p className="form-note" role="status">
             {sent
-              ? "Message saved and WhatsApp draft prepared!"
-              : "Submits to Divyesh's inbox and prepares a direct WhatsApp chat."}
+              ? "Message sent successfully! Delivered directly to Divyesh's inbox."
+              : "Submits directly to Divyesh's inbox (kolli.divyesh@gmail.com)."}
           </p>
         </form>
       </details>

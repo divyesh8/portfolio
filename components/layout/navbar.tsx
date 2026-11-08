@@ -1,14 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowUpRight, Menu, Pause, Play, X } from "lucide-react";
+import { ArrowUpRight, Menu, X } from "lucide-react";
 import { SITE } from "@/constants/site";
-import { useReducedMotion, toggleMotion } from "@/hooks/use-media-query";
 
 export function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("home");
-  const reduced = useReducedMotion();
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -67,17 +65,6 @@ export function Navbar() {
       </nav>
 
       <div className="header-actions">
-        <button
-          type="button"
-          className="motion-toggle"
-          onClick={toggleMotion}
-          aria-label={!reduced ? "Pause animation" : "Enable animation"}
-          aria-pressed={reduced}
-        >
-          {!reduced ? <Pause size={13} /> : <Play size={13} />}
-          <span>Motion {!reduced ? "on" : "off"}</span>
-        </button>
-
         <a className="header-contact" href="#contact">
           Let’s talk <ArrowUpRight size={16} />
         </a>
