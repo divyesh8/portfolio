@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Navbar } from "@/components/layout/navbar";
 import { CommandPalette } from "@/components/layout/command-palette";
 import { BackToTop, ScrollProgress } from "@/components/layout/chrome";
+import { VisitorBeacon } from "@/components/layout/visitor-beacon";
 
 /**
  * Single client boundary for everything that floats above the page. Keeping
@@ -19,6 +20,7 @@ export function SiteChrome() {
       <Navbar onOpenPalette={() => setPaletteOpen(true)} />
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
       <BackToTop />
+      <VisitorBeacon />
     </>
   );
 }
