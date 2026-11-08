@@ -83,8 +83,6 @@ interface GeoLookup {
   city?: string;
   region?: string;
   country?: string;
-  latitude?: string;
-  longitude?: string;
   isp?: string;
   org?: string;
   domain?: string;
@@ -142,10 +140,6 @@ async function lookupIpGeo(ip: string): Promise<GeoLookup> {
       city: clean(data.city, 120),
       region: clean(data.region, 120),
       country: clean(data.country, 120),
-      latitude:
-        typeof data.latitude === "number" ? String(data.latitude) : undefined,
-      longitude:
-        typeof data.longitude === "number" ? String(data.longitude) : undefined,
       isp: clean(conn.isp, 160),
       org: clean(conn.org, 160),
       domain: clean(conn.domain, 120),
@@ -153,6 +147,61 @@ async function lookupIpGeo(ip: string): Promise<GeoLookup> {
     };
   } catch {
     return {};
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+interface ReverseGeocodeResult {
+  shortPlace: string;
+  fullAddress: string;
+}
+
+async function reverseGeocodeCoords(
+  lat: number,
+  lon: number,
+): Promise<ReverseGeocodeResult | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 2500);
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(String(lat))}&lon=${encodeURIComponent(String(lon))}&zoom=18&addressdetails=1`;
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        Accept: "application/json",
+        "Accept-Language": "en",
+        "User-Agent": `DivyeshKolliPortfolio/1.0 (${SITE.email})`,
+      },
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as Record<string, unknown>;
+    const fullAddress = clean(data.display_name, 350);
+    const addr =
+      data.address && typeof data.address === "object"
+        ? (data.address as Record<string, unknown>)
+        : {};
+    const placeParts = [
+      clean(addr.amenity || addr.building || addr.university || addr.college, 120),
+      clean(
+        addr.suburb ||
+          addr.neighbourhood ||
+          addr.village ||
+          addr.town ||
+          addr.hamlet,
+        100,
+      ),
+      clean(addr.city || addr.county || addr.state_district, 100),
+      clean(addr.state, 80),
+    ].filter(Boolean);
+    const shortPlace = Array.from(new Set(placeParts)).join(", ");
+    if (!fullAddress && !shortPlace) return null;
+    return {
+      shortPlace: shortPlace || fullAddress,
+      fullAddress: fullAddress || shortPlace,
+    };
+  } catch {
+    return null;
   } finally {
     clearTimeout(timer);
   }
@@ -192,29 +241,60 @@ export async function POST(request: Request) {
   const vercelCountry = decodeHeader(
     request.headers.get("x-vercel-ip-country"),
   );
-  const vercelLat = decodeHeader(request.headers.get("x-vercel-ip-latitude"));
-  const vercelLon = decodeHeader(request.headers.get("x-vercel-ip-longitude"));
   const vercelTz = decodeHeader(request.headers.get("x-vercel-ip-timezone"));
 
-  const [geo, hostname] = await Promise.all([
+  const hasPreciseGps =
+    typeof body.gpsLat === "number" &&
+    typeof body.gpsLon === "number" &&
+    Number.isFinite(body.gpsLat) &&
+    Number.isFinite(body.gpsLon);
+  const gpsLat = hasPreciseGps ? (body.gpsLat as number) : null;
+  const gpsLon = hasPreciseGps ? (body.gpsLon as number) : null;
+  const gpsAccuracy =
+    typeof body.gpsAccuracy === "number" && Number.isFinite(body.gpsAccuracy)
+      ? Math.round(body.gpsAccuracy)
+      : null;
+
+  const [geo, hostname, reversePlace] = await Promise.all([
     lookupIpGeo(ip),
     lookupReverseDns(ip),
+    gpsLat !== null && gpsLon !== null
+      ? reverseGeocodeCoords(gpsLat, gpsLon)
+      : Promise.resolve(null),
   ]);
 
-  const city = vercelCity || geo.city || "";
-  const region = geo.region || vercelRegion || "";
-  const country = geo.country || vercelCountry || "";
-  const lat = vercelLat || geo.latitude || "";
-  const lon = vercelLon || geo.longitude || "";
+  const ipCity = vercelCity || geo.city || "";
+  const ipRegion = geo.region || vercelRegion || "";
+  const ipCountry = geo.country || vercelCountry || "";
   const ispParts = [geo.org, geo.isp, geo.domain].filter(Boolean);
-  const isp =
-    Array.from(new Set(ispParts)).join(" · ") || "Unavailable";
-  const locationParts = [city, region, country].filter(Boolean);
-  const locationLabel =
-    locationParts.length > 0 ? locationParts.join(", ") : "Unknown location";
-  const coordinates = lat && lon ? `${lat}, ${lon}` : "";
+  const isp = Array.from(new Set(ispParts)).join(" · ") || "Unavailable";
+
+  const ipLocationParts = [ipCity, ipRegion, ipCountry].filter(Boolean);
+  const ipRegionLabel =
+    ipLocationParts.length > 0
+      ? `${ipLocationParts.join(", ")} (ISP Gateway Region)`
+      : "Unknown ISP region";
+
+  const locationLabel = reversePlace
+    ? reversePlace.shortPlace
+    : ipLocationParts.length > 0
+      ? `${ipLocationParts.join(", ")} (ISP Gateway)`
+      : "Unknown location";
+
+  const preciseCoordinates =
+    gpsLat !== null && gpsLon !== null
+      ? `${gpsLat}, ${gpsLon}${gpsAccuracy !== null ? ` (±${gpsAccuracy}m accuracy)` : ""}`
+      : "";
+
+  // Only drop an exact coordinate pin on Google Maps when real GPS / Wi-Fi
+  // coordinates are available; ISP-only centroids point to generic city centers
+  // like Chennai Central rather than the visitor's actual suburb/campus.
   const mapsUrl =
-    lat && lon ? `https://www.google.com/maps?q=${lat},${lon}` : "";
+    gpsLat !== null && gpsLon !== null
+      ? `https://www.google.com/maps?q=${gpsLat},${gpsLon}`
+      : ipLocationParts.length > 0
+        ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ipLocationParts.join(", "))}`
+        : "";
 
   const now = new Date();
   const istTime = new Intl.DateTimeFormat("en-IN", {
@@ -231,9 +311,7 @@ export async function POST(request: Request) {
     [visitorName, visitorEmail ? `<${visitorEmail}>` : ""]
       .filter(Boolean)
       .join(" ") ||
-    geo.org ||
-    hostname ||
-    "Anonymous visitor (Browser sandboxed)";
+    "Not shared (Browsers block reading personal names without Google Sign-In or form entry)";
 
   const clientDevice = clean(body.platform, 120);
   const gpu = clean(body.gpu, 180) || "Unavailable";
@@ -258,14 +336,24 @@ export async function POST(request: Request) {
     .join(" — ");
 
   const rows: Array<[string, string]> = [
-    ["Visitor Name / Identity", visitorIdentity],
+    ["Visitor Name", visitorIdentity],
     ["Date & Time (IST)", `${istTime} IST`],
     ["Visitor Local Time", `${clientLocalTime} (${clientTz})`],
     ["UTC Timestamp", utcTime],
-    ["Location", locationLabel],
-    ...(coordinates ? [["Coordinates", coordinates] as [string, string]] : []),
+    ...(reversePlace
+      ? [
+          ["Exact Area / Campus", reversePlace.fullAddress] as [string, string],
+          ["GPS / Wi-Fi Coordinates", preciseCoordinates] as [string, string],
+        ]
+      : [
+          [
+            "LocationPrecision",
+            "Approximate ISP Gateway only (Visitor did not grant browser Location permission)",
+          ] as [string, string],
+        ]),
+    ["ISP Gateway Region", ipRegionLabel],
     ["IP Address", hostname ? `${ip} (${hostname})` : ip],
-    ["Organization / ISP", isp],
+    ["Network / ISP", isp],
     ["Device", deviceSummary],
     ["Operating System", clientDevice || os],
     ["Browser", browser],
@@ -278,8 +366,15 @@ export async function POST(request: Request) {
     ["User-Agent", ua],
   ];
 
+  const isUpdate = Boolean(body.locationUpdate || body.identityUpdate);
+  const subjectPrefix = body.locationUpdate
+    ? "Exact Location Pinpointed"
+    : body.identityUpdate
+      ? "Visitor Identified"
+      : "Visitor Alert";
+
   const textBody = [
-    `New visitor on ${SITE.name}'s Portfolio (${SITE.url})`,
+    `${subjectPrefix} on ${SITE.name}'s Portfolio (${SITE.url})`,
     "------------------------------------------------------------",
     ...rows.map(([label, val]) => `${label}: ${val}`),
     ...(mapsUrl ? [`Google Maps: ${mapsUrl}`] : []),
@@ -299,14 +394,14 @@ export async function POST(request: Request) {
   const htmlBody = `
   <div style="background:#090909;color:#f2efeb;padding:24px;font-family:system-ui,-apple-system,sans-serif;">
     <div style="max-width:640px;margin:0 auto;border:1px solid #2a2a2a;background:#121212;border-top:3px solid #e32b3c;padding:20px;">
-      <p style="margin:0 0 4px;font-family:monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#e32b3c;">Portfolio Visitor Telemetry</p>
+      <p style="margin:0 0 4px;font-family:monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#e32b3c;">${escapeHtml(isUpdate ? subjectPrefix : "Portfolio Visitor Telemetry")}</p>
       <h2 style="margin:0 0 16px;font-size:20px;color:#f2efeb;">${escapeHtml(headingWho)} · ${escapeHtml(deviceType)} (${escapeHtml(clientDevice || os)})</h2>
       <table style="width:100%;border-collapse:collapse;">
         <tbody>${htmlRows}</tbody>
       </table>
       ${
         mapsUrl
-          ? `<p style="margin:16px 0 0;font-size:12px;"><a href="${escapeHtml(mapsUrl)}" style="color:#f04858;text-decoration:none;font-family:monospace;">View approximate location on Google Maps &rarr;</a></p>`
+          ? `<p style="margin:16px 0 0;font-size:12px;"><a href="${escapeHtml(mapsUrl)}" style="color:#f04858;text-decoration:none;font-family:monospace;">${gpsLat !== null ? "Open exact GPS / Wi-Fi pin on Google Maps &rarr;" : "View ISP gateway city on Google Maps &rarr;"}</a></p>`
           : ""
       }
     </div>
@@ -328,7 +423,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         from: `Portfolio Visitor <${fromAddress}>`,
         to: [toAddress],
-        subject: `Visitor Alert: ${visitorName ? `${visitorName} (${locationLabel})` : locationLabel} · ${deviceType} (${os}, ${browser.split(" ")[0]})`,
+        subject: `${subjectPrefix}: ${visitorName ? `${visitorName} (${locationLabel})` : locationLabel} · ${deviceType} (${os}, ${browser.split(" ")[0]})`,
         text: textBody,
         html: htmlBody,
       }),

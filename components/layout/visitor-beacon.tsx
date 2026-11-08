@@ -22,6 +22,12 @@ interface NavigatorWithExtras extends Navigator {
   };
 }
 
+interface PreciseCoords {
+  lat: number;
+  lon: number;
+  accuracy: number;
+}
+
 function getGpuRenderer(): string {
   try {
     const canvas = document.createElement("canvas");
@@ -42,7 +48,6 @@ function getKnownVisitorIdentity(): { name: string; email: string } {
   let name = "";
   let email = "";
 
-  // 1. Check URL parameters (e.g. ?name=..., ?visitor=..., ?from=...)
   try {
     const params = new URLSearchParams(window.location.search);
     name =
@@ -56,7 +61,6 @@ function getKnownVisitorIdentity(): { name: string; email: string } {
     /* Ignore URL parse issues */
   }
 
-  // 2. Check stored visitor identity from previous interactions
   try {
     const saved = localStorage.getItem("dk-visitor-identity");
     if (saved) {
@@ -68,7 +72,6 @@ function getKnownVisitorIdentity(): { name: string; email: string } {
     /* Ignore storage restrictions */
   }
 
-  // 3. Check if browser autofilled the contact form inputs
   try {
     const nameInput = document.querySelector<HTMLInputElement>(
       'input[name="name"]',
@@ -101,6 +104,18 @@ function decodeJwtPayload(token: string): { name?: string; email?: string } {
   }
 }
 
+function sendVisitPayload(data: Record<string, unknown>) {
+  const json = JSON.stringify(data);
+  fetch("/api/visit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: json,
+    keepalive: true,
+  }).catch(() => {
+    /* Never surface telemetry errors to visitors. */
+  });
+}
+
 export function VisitorBeacon() {
   useEffect(() => {
     if (navigator.webdriver) return;
@@ -110,6 +125,16 @@ export function VisitorBeacon() {
     } catch {
       /* Continue if storage is restricted. */
     }
+
+    let initialSent = false;
+    let basePayload: Record<string, unknown> | null = null;
+
+    const flushFallbackOnHide = () => {
+      if (document.visibilityState === "hidden" && !initialSent && basePayload) {
+        initialSent = true;
+        sendVisitPayload(basePayload);
+      }
+    };
 
     const timer = window.setTimeout(async () => {
       const nav = navigator as NavigatorWithExtras;
@@ -167,7 +192,7 @@ export function VisitorBeacon() {
       const identity = getKnownVisitorIdentity();
       const gpu = getGpuRenderer();
 
-      const payload = {
+      basePayload = {
         visitorName: identity.name,
         visitorEmail: identity.email,
         localTime: new Date().toLocaleString(),
@@ -184,14 +209,57 @@ export function VisitorBeacon() {
         theme: document.documentElement.dataset.theme || "dark",
       };
 
-      fetch("/api/visit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        keepalive: true,
-      }).catch(() => {
-        /* Never surface telemetry errors to visitors. */
-      });
+      document.addEventListener("visibilitychange", flushFallbackOnHide);
+
+      // Request real GPS / Wi-Fi campus/neighborhood coordinates so locations
+      // like SRM University Potheri are pinpointed accurately rather than
+      // defaulting to the ISP's Chennai Central city centroid.
+      if ("geolocation" in navigator) {
+        const waitTimer = window.setTimeout(() => {
+          if (!initialSent && basePayload) {
+            initialSent = true;
+            sendVisitPayload(basePayload);
+          }
+        }, 6500);
+
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            window.clearTimeout(waitTimer);
+            const coords: PreciseCoords = {
+              lat: Number(pos.coords.latitude.toFixed(6)),
+              lon: Number(pos.coords.longitude.toFixed(6)),
+              accuracy: Math.round(pos.coords.accuracy),
+            };
+            const latestIdentity = getKnownVisitorIdentity();
+            const enriched = {
+              ...basePayload,
+              visitorName: latestIdentity.name || identity.name,
+              visitorEmail: latestIdentity.email || identity.email,
+              gpsLat: coords.lat,
+              gpsLon: coords.lon,
+              gpsAccuracy: coords.accuracy,
+              locationUpdate: initialSent,
+            };
+            initialSent = true;
+            sendVisitPayload(enriched);
+          },
+          () => {
+            window.clearTimeout(waitTimer);
+            if (!initialSent && basePayload) {
+              initialSent = true;
+              sendVisitPayload(basePayload);
+            }
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 25000,
+            maximumAge: 120000,
+          },
+        );
+      } else {
+        initialSent = true;
+        sendVisitPayload(basePayload);
+      }
 
       // Optional Google One Tap: if NEXT_PUBLIC_GOOGLE_CLIENT_ID is configured,
       // signed-in Google/Chrome users can share their verified name & email.
@@ -238,25 +306,24 @@ export function VisitorBeacon() {
               } catch {
                 /* Ignore storage issues */
               }
-              fetch("/api/visit", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  ...payload,
-                  visitorName: claims.name ?? "",
-                  visitorEmail: claims.email ?? "",
-                }),
-                keepalive: true,
-              }).catch(() => {});
+              sendVisitPayload({
+                ...basePayload,
+                visitorName: claims.name ?? "",
+                visitorEmail: claims.email ?? "",
+                identityUpdate: true,
+              });
             },
           });
           g?.accounts?.id?.prompt();
         };
         document.head.appendChild(script);
       }
-    }, 1500);
+    }, 1200);
 
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", flushFallbackOnHide);
+    };
   }, []);
 
   return null;
