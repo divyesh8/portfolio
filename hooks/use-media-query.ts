@@ -28,7 +28,7 @@ function motionOff() {
 }
 
 export function useReducedMotion() {
-  return useSyncExternalStore(subscribeMotion, motionOff, () => true);
+  return useSyncExternalStore(subscribeMotion, motionOff, () => false);
 }
 
 export function toggleMotion() {

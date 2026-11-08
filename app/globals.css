@@ -1087,6 +1087,10 @@ html[data-motion="on"]:not([data-page-hidden])
   pointer-events: none;
 }
 
+[data-motion="off"] .folio-hero [style] {
+  opacity: 1 !important;
+  clip-path: none !important;
+}
 [data-motion="off"] *,
 [data-motion="off"] *::before,
 [data-motion="off"] *::after {

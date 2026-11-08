@@ -97,12 +97,7 @@ export function Hero() {
               animate={{ opacity: 1 }}
               transition={{ duration: 1.2, delay: 0.2, ease: EASE }}
             >
-              <motion.div
-                className="portrait-silhouette"
-                initial={reduced ? false : { y: 24, scale: 0.96 }}
-                animate={{ y: 0, scale: 1 }}
-                transition={{ duration: 1.2, delay: 0.2, ease: EASE }}
-              >
+              <div className="portrait-silhouette">
                 <Image
                   src={SITE.portrait}
                   alt={`Portrait of ${SITE.name}`}
@@ -112,7 +107,7 @@ export function Hero() {
                   draggable={false}
                   priority
                 />
-              </motion.div>
+              </div>
             </motion.figure>
           </div>
 

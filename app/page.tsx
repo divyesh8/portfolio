@@ -1,5 +1,4 @@
 import dynamic from "next/dynamic";
-import { Preloader } from "@/components/layout/preloader";
 import { SiteChrome } from "@/components/layout/site-chrome";
 import { Footer } from "@/components/layout/footer";
 import { Hero } from "@/components/sections/hero";
@@ -22,7 +21,6 @@ const Contact = dynamic(() =>
 export default function HomePage() {
   return (
     <>
-      <Preloader />
       <SiteChrome />
 
       <main id="main" tabIndex={-1}>
