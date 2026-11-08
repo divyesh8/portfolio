@@ -32,6 +32,19 @@ export function Contact() {
       string,
       string
     >;
+    try {
+      if (data.name || data.email) {
+        localStorage.setItem(
+          "dk-visitor-identity",
+          JSON.stringify({
+            name: (data.name ?? "").trim(),
+            email: (data.email ?? "").trim(),
+          }),
+        );
+      }
+    } catch {
+      /* Ignore storage restrictions. */
+    }
     const subject = encodeURIComponent(`Portfolio — ${data.name}`);
     const body = encodeURIComponent(
       `${data.message}\n\n— ${data.name} (${data.email})`,

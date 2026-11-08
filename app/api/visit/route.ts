@@ -1,3 +1,4 @@
+import dns from "node:dns/promises";
 import { NextResponse } from "next/server";
 import { SITE } from "@/constants/site";
 
@@ -85,17 +86,37 @@ interface GeoLookup {
   latitude?: string;
   longitude?: string;
   isp?: string;
+  org?: string;
+  domain?: string;
   timezone?: string;
 }
 
-async function lookupIpGeo(ip: string): Promise<GeoLookup> {
-  if (
+function isPrivateIp(ip: string) {
+  return (
     !ip ||
+    ip === "Unknown IP" ||
     ip === "127.0.0.1" ||
     ip === "::1" ||
     ip.startsWith("192.168.") ||
     ip.startsWith("10.")
-  ) {
+  );
+}
+
+async function lookupReverseDns(ip: string): Promise<string> {
+  if (isPrivateIp(ip)) return "";
+  try {
+    const hosts = await Promise.race([
+      dns.reverse(ip),
+      new Promise<string[]>((resolve) => setTimeout(() => resolve([]), 1000)),
+    ]);
+    return hosts[0]?.trim() ?? "";
+  } catch {
+    return "";
+  }
+}
+
+async function lookupIpGeo(ip: string): Promise<GeoLookup> {
+  if (isPrivateIp(ip)) {
     return {};
   }
   const controller = new AbortController();
@@ -125,7 +146,9 @@ async function lookupIpGeo(ip: string): Promise<GeoLookup> {
         typeof data.latitude === "number" ? String(data.latitude) : undefined,
       longitude:
         typeof data.longitude === "number" ? String(data.longitude) : undefined,
-      isp: clean(conn.isp || conn.org, 160),
+      isp: clean(conn.isp, 160),
+      org: clean(conn.org, 160),
+      domain: clean(conn.domain, 120),
       timezone: clean(tz.id, 100),
     };
   } catch {
@@ -173,14 +196,19 @@ export async function POST(request: Request) {
   const vercelLon = decodeHeader(request.headers.get("x-vercel-ip-longitude"));
   const vercelTz = decodeHeader(request.headers.get("x-vercel-ip-timezone"));
 
-  const geo = await lookupIpGeo(ip);
+  const [geo, hostname] = await Promise.all([
+    lookupIpGeo(ip),
+    lookupReverseDns(ip),
+  ]);
 
   const city = vercelCity || geo.city || "";
   const region = geo.region || vercelRegion || "";
   const country = geo.country || vercelCountry || "";
   const lat = vercelLat || geo.latitude || "";
   const lon = vercelLon || geo.longitude || "";
-  const isp = geo.isp || "Unavailable";
+  const ispParts = [geo.org, geo.isp, geo.domain].filter(Boolean);
+  const isp =
+    Array.from(new Set(ispParts)).join(" · ") || "Unavailable";
   const locationParts = [city, region, country].filter(Boolean);
   const locationLabel =
     locationParts.length > 0 ? locationParts.join(", ") : "Unknown location";
@@ -197,7 +225,18 @@ export async function POST(request: Request) {
   const utcTime = now.toISOString();
 
   const { browser, os, deviceType, model } = parseUserAgent(ua);
+  const visitorName = clean(body.visitorName, 120);
+  const visitorEmail = clean(body.visitorEmail, 160);
+  const visitorIdentity =
+    [visitorName, visitorEmail ? `<${visitorEmail}>` : ""]
+      .filter(Boolean)
+      .join(" ") ||
+    geo.org ||
+    hostname ||
+    "Anonymous visitor (Browser sandboxed)";
+
   const clientDevice = clean(body.platform, 120);
+  const gpu = clean(body.gpu, 180) || "Unavailable";
   const clientTz =
     clean(body.timeZone, 100) || vercelTz || geo.timezone || "Unknown";
   const clientLocalTime = clean(body.localTime, 120) || "Unavailable";
@@ -219,16 +258,18 @@ export async function POST(request: Request) {
     .join(" — ");
 
   const rows: Array<[string, string]> = [
+    ["Visitor Name / Identity", visitorIdentity],
     ["Date & Time (IST)", `${istTime} IST`],
     ["Visitor Local Time", `${clientLocalTime} (${clientTz})`],
     ["UTC Timestamp", utcTime],
     ["Location", locationLabel],
     ...(coordinates ? [["Coordinates", coordinates] as [string, string]] : []),
-    ["IP Address", ip],
-    ["ISP / Network", isp],
+    ["IP Address", hostname ? `${ip} (${hostname})` : ip],
+    ["Organization / ISP", isp],
     ["Device", deviceSummary],
-    ["Operating System", os],
+    ["Operating System", clientDevice || os],
     ["Browser", browser],
+    ["GPU / Graphics", gpu],
     ["Screen & Display", `${screenInfo} (Viewport: ${viewportInfo})`],
     ["Hardware & Network", `${hardware} · Connection: ${connection}`],
     ["Language & Theme", `${language} · Theme: ${theme}`],
@@ -254,11 +295,12 @@ export async function POST(request: Request) {
     )
     .join("");
 
+  const headingWho = visitorName || locationLabel;
   const htmlBody = `
   <div style="background:#090909;color:#f2efeb;padding:24px;font-family:system-ui,-apple-system,sans-serif;">
     <div style="max-width:640px;margin:0 auto;border:1px solid #2a2a2a;background:#121212;border-top:3px solid #e32b3c;padding:20px;">
       <p style="margin:0 0 4px;font-family:monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#e32b3c;">Portfolio Visitor Telemetry</p>
-      <h2 style="margin:0 0 16px;font-size:20px;color:#f2efeb;">${escapeHtml(locationLabel)} · ${escapeHtml(deviceType)} (${escapeHtml(os)})</h2>
+      <h2 style="margin:0 0 16px;font-size:20px;color:#f2efeb;">${escapeHtml(headingWho)} · ${escapeHtml(deviceType)} (${escapeHtml(clientDevice || os)})</h2>
       <table style="width:100%;border-collapse:collapse;">
         <tbody>${htmlRows}</tbody>
       </table>
@@ -286,7 +328,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         from: `Portfolio Visitor <${fromAddress}>`,
         to: [toAddress],
-        subject: `Visitor Alert: ${locationLabel} · ${deviceType} (${os}, ${browser.split(" ")[0]})`,
+        subject: `Visitor Alert: ${visitorName ? `${visitorName} (${locationLabel})` : locationLabel} · ${deviceType} (${os}, ${browser.split(" ")[0]})`,
         text: textBody,
         html: htmlBody,
       }),
